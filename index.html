@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sportify! — Explore Your Workout Music</title>
+
+  <!-- CSS + LIBS -->
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/d3-hexbin.v0.2.min.js"></script>
+  <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+
+  <style>
+
+    /* ========= HERO + PLAYLIST SECTION ========= */
+
+    #hero {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0;
+      animation: heroFade 2.5s ease-out forwards;
+    }
+
+    @keyframes heroFade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* VISUALIZATION SECTION – 3 screens worth of scroll */
+    #viz-section {
+      width: 100vw;
+      height: 300vh;       /* 3 scroll panels for low / med / high */
+      background: #ffffff;
+      position: relative;
+      margin-top: 160px;
+      padding-top: 40px;
+      box-sizing: border-box;
+    }
+
+    /* MAIN LAYOUT: line/area chart + radar chart */
+    #playlist_graph {
+      position: sticky;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      padding: 40px 60px;
+      box-sizing: border-box;
+      display: flex;
+      gap: 2vw;
+      align-items: stretch;
+    }
+
+    #areaChart { flex: 2 1 0; height: 100%; }
+    #radarChart {
+      flex: 1 1 0;
+      min-width: 220px;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #ffffff;
+    }
+
+    #areaChart svg { width: 100%; height: 100%; display: block; }
+    #radarChart svg { width: 90%; height: 90%; display: block; }
+
+    /* SONG INFO BOX */
+    #center-info {
+      position: absolute;
+      top: 40%;
+      left: 56%;
+      transform: translate(-50%, -50%);
+      text-align: left;
+      font-family: sans-serif;
+      color: #333;
+      max-width: 220px;
+      background: rgba(255,255,255,0.95);
+      padding: 12px 14px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+
+#intro {
+  padding: 80px 100px 80px;
+  background: linear-gradient(
+    to bottom,
+    #11425d 0%,
+    #d3d3d3 85%,
+    #ddff55 100%
+  );
+  color: #fff;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.intro-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 42px;
+  font-style: italic;
+  margin-bottom: 50px;
+  border-bottom: 2px solid #fff;
+  display: inline-block;
+  padding-bottom: 6px;
+}
+
+.intro-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 100px;
+  max-width: 1000px;
+}
+
+.intro-block h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  margin-bottom: 7px;
+}
+
+.intro-block p {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  line-height: 1.29;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ================================
+       WORKOUT ZONE (SUNBURST) 
+    =================================== */
+
+#workout-zone-section {
+    position: relative;
+    height: 850px;
+    overflow: hidden;
+}
+
+/* CHART WRAPPER FIX */
+#zone-chart-wrapper {
+    width: 100%;
+    height: 850px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    z-index: 1;
+}
+
+#zone-chart-wrapper svg {
+    width: 1200px;
+    height: 1200px;
+    display: block;
+    margin: 0 auto;
+    transform: translateY(270px); /* Chart pushed down to touch bottom of 850px container */
+}
+
+    /* TITLE BLOCK FIX */
+    #zone-title-block {
+    position: absolute;
+    top: 200px;
+    left: 120px;
+    z-index: 2000;
+    pointer-events: none;
+    width: 800px;
+}
+
+
+    #zone-title-block h1 {
+      font-family: 'Playfair Display';
+      font-size: 47px;
+      font-style: italic;
+      margin: 0;
+      color: #000;
+      border-bottom: 2px solid #000;
+      padding-bottom: 4px;
+      display: inline-block;
+    }
+
+    #zone-title-block .label {
+    font-size: 17px;
+    margin: 40px 0 3px 0;
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#zone-title-block .sub {
+    font-size: 15px;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;
+    font-family: 'Inter', sans-serif;
+}
+
+    /* Scroll Hint FIX */
+    #zone-scroll-hint {
+      position: absolute;
+      right: 100px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 25px;
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: #000;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #zone-scroll-hint .arrow {
+      font-size: 37px;
+      line-height: 35px;
+    }
+
+    #zone-scroll-hint .text {
+      font-size: 18px;
+      font-weight: 500;
+      line-height: 1.1;
+    }
+
+   
+    #viz-switcher {
+      z-index: 6000; /* dropdown ALWAYS clickable */
+      position: relative;
+      pointer-events: auto;
+    }
+
+    /* legend */
+
+    #zone-legend {
+  position: absolute;
+  top: 330px;          /* aligns under subtitle */
+  left: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: #333;
+  z-index: 3000;
+}
+
+.zone-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zone-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+
+    /* ================================
+       WORKOUT TYPE (HEXBIN) 
+    =================================== */
+
+    #workout-type-section {
+      position: relative;
+    height: 850px;
+    overflow: hidden;
+}
+
+/* TITLE BLOCK FIX */
+    #type-title-block {
+    position: absolute;
+    top: 200px;
+    left: 120px;
+    z-index: 2000;
+    pointer-events: none;
+    width: 800px;
+}
+
+    /* subtitle and question of TEXTURE */
+
+    #type-title-block h1 {
+      font-family: 'Playfair Display';
+      font-size: 47px;
+      font-style: italic;
+      margin: 0;
+      color: #000;
+      border-bottom: 2px solid #000;
+      padding-bottom: 4px;
+      display: inline-block;
+    }
+
+    #type-title-block .label {
+    font-size: 17px;
+    margin: 40px 0 3px 0;
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#type-title-block .sub {
+    font-size: 15px;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;
+    font-family: 'Inter', sans-serif;
+}
+
+    /* chart and buttons */
+
+    #workout-type-section #chart {
+      position: absolute;
+      left: 45%;
+      top: 250px;
+      transform: scale(0.75);
+      width: 300px;
+      height: 200px;
+    }
+
+    /* BUTTON GRID POSITIONING */
+    #workout-type-section #button-wrap {
+      position: absolute;
+      top: 350px;
+      left: 110px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      z-index: 999;
+    }
+
+    #workout-type-section .button-row {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+    }
+
+    #workout-type-section .wbutton {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      object-position: center;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    #workout-type-section .wbutton:hover {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+
+    #workout-type-section .button-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    #workout-type-section .button-label {
+      margin-top: 10px;
+      font-size: 12px;
+      font-family: Inter, sans-serif;
+      color: #000;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* SONG INFO FONT (HEXBIN) */
+    #workout-type-section #song-info-fixed {
+      position: absolute;
+      
+      top: 200px;
+      left: 950px;
+      width: 220px;
+      background: rgba(255,255,255,0.92);
+      padding: 14px 18px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    #workout-type-section #type-reset-button {
+  position: absolute;
+  bottom: 150px;
+  left: 120px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #999;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, opacity 0.25s ease;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+}
+
+#workout-type-section #type-reset-button:hover {
+  background: #666;
+}
+
+    #workout-type-section #hexbin-hint {
+      position: absolute;
+      z-index: 1000;
+      right: 180px;
+      top: 230px;
+      display: flex;
+      align-items: flex-start;
+      gap: 25px;
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: #000;
+      pointer-events: none;
+      text-align: right;        /* ⭐ */
+  flex-direction: row-reverse; /* ⭐ */
+    }
+
+    #workout-type-section #hexbin-hint .text {
+      font-size: 18px;
+      font-style: italic;
+      font-weight: 500;
+      line-height: 1.1;
+    }
+
+#workout-type-section {
+  position: relative;
+}
+
+    #workout-type-section #viz-switcher {
+      margin-top: 10px;
+      pointer-events: auto !important;
+    }
+
+    #workout-type-section #viz-menu {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+   /* ================================
+       WORKOUT VIBE (SANKEY) 
+    =================================== */
+
+#workout-vibe-section {
+    position: relative;
+    height: 850px;  /* ← Use height instead of min-height */
+    overflow: hidden;  /* ← Prevent content from extending beyond */
+}
+
+#vibe-title-block {
+    position: absolute;
+    top: 200px;
+    left: 120px;  /* ← Start with a reasonable value */
+    z-index: 10;
+    width: 800px;  /* ← Increase width to accommodate content */
+    pointer-events: none;
+}
+
+#mood-descriptions {
+    margin-top: 60px;
+    left: 120px;   /* ← SHIFT THE ENTIRE CONTAINER */
+    max-width: 700px;
+    pointer-events: auto;
+}
+
+.mood-desc {
+    font-size: 12px;
+        font-family: 'Inter', sans-serif;
+    color: #333;
+    margin: 0;
+    margin-left: 30px;  /* ← REDUCE from 100px */
+    line-height: 1.5;
+    max-width: 350px;
+}
+
+
+#vibe-title-block h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 47px;
+    font-style: italic;
+    margin: 0;
+    color: #000;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
+    display: inline-block;
+}
+
+#vibe-title-block #viz-switcher {
+    margin-top: 10px;
+    pointer-events: auto;
+}
+
+#vibe-title-block .label {
+    font-size: 17px;
+    margin: 40px 0 3px 0;  /* ← DECREASE third value (was 12px) */
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#vibe-title-block .sub {
+    font-size: 15px;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;
+    font-family: 'Inter', sans-serif;
+}
+
+   #vibe-chart {
+  width: 100%;
+ height: 2000px; 
+   position: relative;
+  z-index: 10;
+}
+
+#sankey-wrapper {
+ position: absolute;  /* ← Keep this */
+    bottom: 7px;  /* ← Adjust if needed */
+    right: 20px;
+    transform: translateX(-50%) translateX(100px);
+    width: 500px;
+    height: 650px;
+    overflow: hidden;
+    z-index: 100;
+}
+
+#sankey-scroll {
+    width: 500px;
+    height: 600px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+#sankey {
+    width: 2800px;
+    height: 1200px;
+    display: block;
+    padding: 0;
+    margin: 0;
+    transform: scale(0.5);
+    transform-origin: left top;
+}
+
+.mood-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;  /* ← DECREASE to move them closer together */
+}
+
+.mood-label {
+    padding: 8px 12px;
+    border-radius: 25px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    min-width: 120px;
+    text-align: center;
+    cursor: pointer;  /* ← ADD THIS */
+}
+
+.mood-euphoric { background: #ff7675; }
+.mood-energetic { background: #fdcb6e; }
+.mood-balanced { background: #74b9ff; }
+.mood-chill { background: #a29bfe; }
+.mood-reflective { background: #6c5ce7; }
+.mood-moody { background: #b39ddb; }
+
+.vibe-step {
+    position: relative;  /* ← ADD THIS */
+}
+
+#step-genre {
+    position: relative;
+}
+
+#genre-buttons {
+    margin-top: 62px;
+    left: 120px;
+    pointer-events: auto;
+}
+
+.genre-row {
+    display: flex;
+    gap: 50px;
+    margin-bottom: 15px;
+}
+
+.genre-label {
+    padding: 8px 12px;
+    border-radius: 25px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+    min-width: 120px;
+    text-align: center;
+}
+
+
+/* hover */
+
+.mood-label:hover {
+    transform: scale(1.05);
+}
+
+.genre-label:hover {
+    transform: scale(1.05);
+}
+
+.texture-label:hover {
+    transform: scale(1.05);
+}
+
+.dance-label:hover {
+    transform: scale(1.05);
+}
+
+.phase-label:hover {
+    transform: scale(1.05);
+}
+
+
+.genre-latin { background: #e17055; }
+.genre-indie { background: #00cec9; }
+.genre-country { background: #55efc4; }
+.genre-pop { background: #ff9ff3; }
+.genre-other { background: #b2bec3; }
+.genre-hiphop { background: #ffeaa7; }
+.genre-rock { background: #fd79a8; }
+.genre-rnb { background: #fab1a0; }
+.genre-edm { background: #0984e3; }
+
+
+/* arrow */
+
+.step-nav-btn {
+    position: absolute;  /* ← CHANGE to fixed */
+    bottom: 150px;  /* ← Distance from bottom of the section */
+    left: 160px;  /* ← Distance from right of the section */
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #999;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    pointer-events: auto;
+    z-index: 1000;
+}
+
+.back-btn {
+    left: 120px;  /* ← Adjust for spacing */
+}
+
+.step-nav-btn:hover {
+    background: #666;
+}
+
+
+/* subtitle and question of TEXTURE */
+
+#step-texture {
+    position: relative;
+    margin-top: 240px;
+    left: 120px;
+}
+
+#step-texture .label {
+    font-size: 17px;
+    margin: 40px 0 3px 0;  /* ← Same as mood/genre */
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#step-texture .sub {
+    font-size: 15px;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;  /* ← Same as mood/genre */
+    font-family: 'Inter', sans-serif;
+}
+
+/* description and buttons of TEXTURE */
+
+#texture-descriptions {
+    margin-top: 60px;
+    max-width: 700px;
+    pointer-events: auto;
+}
+
+.texture-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+        pointer-events: auto;  /* ← ADD THIS */
+
+}
+
+.texture-label {
+    padding: 8px 12px;
+    border-radius: 25px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    min-width: 120px;
+    text-align: center;
+    cursor: pointer;
+        pointer-events: auto;  /* ← ADD THIS */
+
+}
+
+.texture-organic { background: #55efc4; }
+.texture-ambient { background: #81ecec; }
+.texture-hybrid { background: #b2ff9e; }
+.texture-percussive { background: #f6b93b; }
+.texture-synthetic { background: #74b9ff; }
+
+.texture-desc {
+    font-size: 12px;
+    color: #333;
+            font-family: 'Inter', sans-serif;
+    margin: 0;
+    margin-left: 30px;
+    line-height: 1.5;
+    max-width: 350px;
+}
+
+
+/* subtitle and question of FLOW */
+
+#step-dance {
+    position: relative;
+    margin-top: 240px;
+    left: 120px;
+        pointer-events: auto;  /* ← ADD THIS */
+
+}
+
+#step-dance .label {
+    font-size: 17px;
+    margin: 40px 0 3px 0;  /* ← Same as mood/genre */
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#step-dance .sub {
+    font-size: 15px;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;  /* ← Same as mood/genre */
+    font-family: 'Inter', sans-serif;
+}
+
+/* description and buttons of FLOW */
+
+#dance-descriptions {
+    margin-top: 60px;
+    max-width: 700px;
+    pointer-events: auto;
+}
+
+.dance-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+        pointer-events: auto;  /* ← ADD THIS */
+}
+
+.dance-label {
+    padding: 8px 12px;
+    border-radius: 25px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    min-width: 120px;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;  /* ← Make sure this is here */
+}
+
+.dance-groovy { background: #f6b93b; }
+.dance-steady { background: #60a3bc; }
+.dance-still { background: #1e3799; }
+
+.dance-desc {
+    font-size: 12px;
+    color: #333;
+            font-family: 'Inter', sans-serif;
+    margin: 0;
+    margin-left: 30px;
+    line-height: 1.5;
+    max-width: 350px;
+}
+
+/* subtitle and question of PHASE */
+
+#step-phase {
+    position: relative;
+    margin-top: 240px;
+    left: 120px;
+        pointer-events: auto;  /* ← ADD THIS */
+}
+
+#step-phase .label {
+    font-size: 17px;
+    margin: 40px 0 3px 0;  /* ← Same as mood/genre */
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#step-phase .sub {
+    font-size: 15px;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;  /* ← Same as mood/genre */
+    font-family: 'Inter', sans-serif;
+}
+
+/* description and buttons of PHASE */
+
+
+#phase-descriptions {
+    margin-top: 60px;
+    max-width: 700px;
+    pointer-events: auto;
+}
+
+.phase-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+        pointer-events: auto;  /* ← ADD THIS */
+}
+
+.phase-label {
+    padding: 8px 12px;
+    border-radius: 25px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    white-space: normal;  /* ← CHANGE from nowrap to normal */
+    min-width: 120px;  /* ← CHANGE from 180px to 120px */
+    max-width: 140px;  /* ← ADD THIS to prevent it getting too wide */
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    line-height: 1.3;  /* ← ADD THIS for better line spacing */
+}
+
+.phase-warmup { background: #b2bec3; }
+.phase-riser { background: #ffeaa7; }
+.phase-peak { background: #fdcb6e; }
+.phase-intensity { background: #e17055; }
+
+.phase-desc {
+    font-size: 12px;
+    color: #333;
+            font-family: 'Inter', sans-serif;
+    margin: 0;
+    margin-left: 30px;
+    line-height: 1.5;
+    max-width: 350px;
+}
+
+/* filtered songs */
+
+/* subtitle and question of filtered songs */
+
+#step-results {
+    position: relative;
+        margin-top: 100px;
+    left: -180px;
+        pointer-events: auto;  /* ← ADD THIS */
+}
+
+#step-results .label {
+    font-size: 17px;
+            font-family: 'Inter', sans-serif;
+    margin: 40px 0 3px 0;  /* ← Same as mood/genre */
+    color: #000;
+    font-family: 'Inter', sans-serif;
+}
+
+#step-results .sub {
+    font-size: 15px;
+            font-family: 'Inter', sans-serif;
+    font-style: italic;
+    color: #777;
+    margin: 0 0 40px 0;  /* ← Same as mood/genre */
+    font-family: 'Inter', sans-serif;
+}
+
+.show-songs-button {
+    margin-top: 50px;
+    margin-left: 120px;
+    padding: 14px 32px;
+    background: #0984e3;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.show-songs-button:hover {
+    background: #0770c9;
+    transform: scale(1.05);
+}
+
+#step-results {
+    display: none;
+    position: relative;
+}
+
+#step-results > div {
+    position: absolute;
+    top: 200px;
+    left: 200px;  /* ← CHANGE from 200px - moves it more to the right */
+    max-width: 600px;  /* ← CHANGE from 900px - makes it narrower */
+}
+
+#songs-results {
+    margin-top: 50px;
+    margin-left: 200px;
+    max-width: 800px;
+}
+
+#songs-results h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+
+#songs-list {
+  display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 250px;  /* ← CHANGE from 500px - makes it taller/more rectangular */
+    min-width: 450px;   /* ← ADD THIS - ensures it's wide enough */    
+    overflow-y: auto;   /* ← ADD THIS - enables scrolling */
+    padding: 20px;      /* ← ADD THIS - internal padding */
+    background: #f8f9fa; /* ← ADD THIS - background for the box */
+    border-radius: 12px; /* ← ADD THIS - rounded corners */
+    border: 1px solid #dee2e6; /* ← ADD THIS - subtle border */
+}
+
+.song-item {
+    padding: 16px;
+    background: white;  /* ← CHANGE from #f8f9fa to white so it contrasts with container */
+    border-radius: 12px;
+    border-left: 4px solid #0984e3;
+    transition: all 0.2s;
+}
+
+.song-item:hover {
+    background: #f1f3f5;  /* ← UPDATE hover color */
+    transform: translateX(5px);
+}
+
+    /* SONG INFO FONT (SANKEY) */
+
+.song-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.song-details {
+    font-size: 12px;
+    color: #999;
+}
+  </style>
+</head>
+
+<body>
+
+  <!-- 1️⃣ HERO -->
+  <div id="hero">
+    <img src="sportify_titlepage.jpg" alt="sportify title page" />
+  </div>
+
+  <!-- 2️⃣ SCROLLING PLAYLIST CHARTS (line/area + radar) -->
+  <div id="viz-section">
+    <div id="playlist_graph">
+      <div id="areaChart"></div>
+      <div id="radarChart"></div>
+      <div id="center-info"></div>
+    </div>
+  </div>
+
+  <!-- playlist line + radar -->
+  <script src="radarChart.js"></script>
+  <script src="playlist graph.js"></script>
+
+<!-- INTRO -->
+  <section id="intro">
+  <h1 class="intro-title">Explore Your Workout Music</h1>
+
+  <div class="intro-columns">
+    <div class="intro-block">
+      <h3>By Workout Zone</h3>
+      <p>
+        Even within the same workout, music needs shift as intensity changes.
+        Warm-ups, peak exertion, and cooldowns benefit from different tempos and
+        energy levels. This view organizes songs by workout zone to show how
+        music aligns with low, moderate, and high-intensity heart rates over time.
+      </p>
+    </div>
+
+    <div class="intro-block">
+      <h3>By Workout Type</h3>
+      <p>
+        Different workouts demand different kinds of music. Strength training,
+        steady runs, and recovery sessions place distinct demands on the body,
+        and the supporting music varies in tempo, energy, and rhythm. Viewing
+        songs by workout type highlights how musical features align with specific
+        forms of movement.
+      </p>
+    </div>
+
+    <div class="intro-block">
+      <h3>By Workout Vibe</h3>
+      <p>
+        Workouts are not only physical experiences but emotional ones. For people
+        new to exercising, choosing music can be challenging without an existing
+        playlist. Designed as a visual quiz, this view organizes songs by vibe to
+        help users discover music that matches how they want a workout to feel.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+
+  <!-- WORKOUT ZONE (SUNBURST) SECTION -->
+
+<section id="workout-zone-section">
+    <!-- TITLE AND DROPDOWN - ALWAYS VISIBLE (matches Vibe at top: 100px) -->
+    <div style="position: absolute; top: 100px; left: 120px; z-index: 10; pointer-events: none;">
+        <h1 style="font-family: 'Playfair Display', serif; font-size: 47px; font-style: italic; margin: 0; color: #000; border-bottom: 2px solid #000; padding-bottom: 4px; display: inline-block;">By Workout Zone</h1>
+        
+        <div id="viz-switcher" style="margin-top: 10px; pointer-events: auto;">
+            <select id="viz-menu">
+                <option value="zone">By Workout Zone</option>
+                <option value="type">By Workout Type</option>
+                <option value="vibe">By Workout Vibe</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- STEP LABELS (matches Vibe at top: 200px) -->
+    <div id="zone-title-block">
+        <p id="main-label" class="label">Pick a zone:</p>
+        <p id="sub-label" class="sub">What kind of energy do you want to train in?</p>
+    </div>
+
+<div id="zone-legend">
+  <div class="zone-legend-item">
+    <span class="zone-dot" style="background:#c4d5e9;"></span>
+    <span>Zone 1: 0–115 BPM</span>
+  </div>
+
+  <div class="zone-legend-item">
+    <span class="zone-dot" style="background:#ed6c46;"></span>
+    <span>Zone 2: 116–135 BPM</span>
+  </div>
+
+  <div class="zone-legend-item">
+    <span class="zone-dot" style="background:#c8e05e;"></span>
+    <span>Zone 3: 136–150 BPM</span>
+  </div>
+
+  <div class="zone-legend-item">
+    <span class="zone-dot" style="background:#c5c0c9;"></span>
+    <span>Zone 4: 151–165 BPM</span>
+  </div>
+
+  <div class="zone-legend-item">
+    <span class="zone-dot" style="background:#1f415b;"></span>
+    <span>Zone 5: 166+ BPM</span>
+  </div>
+</div>
+
+
+    <div id="zone-chart-wrapper">
+      <div id="zone-chart"></div>
+
+      <div id="zone-center-info"
+           style="position:absolute; top:91%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; ">
+      </div>
+
+      <div id="zone-scroll-hint">
+        <div class="arrow">↓</div>
+        <div class="text">Scroll to spin<br>the wheel</div>
+      </div>
+    </div>
+
+</section>
+
+
+  <!-- WORKOUT TYPE (HEXBIN) SECTION -->
+
+  <section id="workout-type-section" style="display:none; position:relative;">
+    <!-- TITLE AND DROPDOWN - ALWAYS VISIBLE -->
+    <div style="position: absolute; top: 100px; left: 120px; z-index: 10; pointer-events: none;">
+        <h1 style="font-family: 'Playfair Display', serif; font-size: 47px; font-style: italic; margin: 0; color: #000; border-bottom: 2px solid #000; padding-bottom: 4px; display: inline-block;">By Workout Type</h1>
+
+      <div id="viz-switcher">
+        <select id="viz-menu-2">
+          <option value="type">By Workout Type</option>
+          <option value="zone">By Workout Zone</option>
+          <option value="vibe">By Workout Vibe</option>
+        </select>
+      </div>
+    </div>
+
+   <!-- STEP LABELS (matches Vibe at top: 200px) -->
+    <div id="type-title-block">
+        <p id="main-label" class="label">Pick your exercise:</p>
+      <p id="sub-label" class="sub">What kind of workout are you in the mood for today?</p>
+    </div>
+
+    <!-- WORKOUT BUTTON GRID -->
+    <div id="button-wrap">
+
+      <div class="button-row">
+        <div class="button-wrap" data-type="Yoga">
+          <img src="workout-type/yoga.png" class="wbutton">
+          <div class="button-label">Yoga</div>
+        </div>
+        <div class="button-wrap" data-type="Pilates">
+          <img src="workout-type/pilates.png" class="wbutton">
+          <div class="button-label">Pilates</div>
+        </div>
+        <div class="button-wrap" data-type="Walking">
+          <img src="workout-type/walking.png" class="wbutton">
+          <div class="button-label">Walking</div>
+        </div>
+        <div class="button-wrap" data-type="Strength">
+          <img src="workout-type/strength.png" class="wbutton">
+          <div class="button-label">Strength</div>
+        </div>
+        <div class="button-wrap" data-type="Elliptical">
+          <img src="workout-type/elliptical.png" class="wbutton">
+          <div class="button-label">Elliptical</div>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <div class="button-wrap" data-type="Stepper">
+          <img src="workout-type/stepper.png" class="wbutton">
+          <div class="button-label">Stepper</div>
+        </div>
+        <div class="button-wrap" data-type="Cycling">
+          <img src="workout-type/cycling.png" class="wbutton">
+          <div class="button-label">Cycling</div>
+        </div>
+        <div class="button-wrap" data-type="Dance">
+          <img src="workout-type/dance.png" class="wbutton">
+          <div class="button-label">Dance</div>
+        </div>
+        <div class="button-wrap" data-type="Running">
+          <img src="workout-type/running.png" class="wbutton">
+          <div class="button-label">Running</div>
+        </div>
+        <div class="button-wrap" data-type="HIIT">
+          <img src="workout-type/hiit.png" class="wbutton">
+          <div class="button-label">HIIT</div>
+        </div>
+      </div>
+
+      <div id="song-info-fixed"></div>
+
+    </div>
+
+<div id="type-reset-button"><span>←</span></div>
+
+    <div id="hexbin-hint">
+      <div class="text">Click the hexagons to <br>explore your songs</div>
+    </div>
+
+    <div id="chart"></div>
+
+  </section>
+
+  <!-- WORKOUT VIBE (SANKEY) SECTION -->
+
+<section id="workout-vibe-section" style="display:none; position:relative;">
+    <!-- TITLE AND DROPDOWN - ALWAYS VISIBLE -->
+    <div style="position: absolute; top: 100px; left: 120px; z-index: 10; pointer-events: none;">
+        <h1 style="font-family: 'Playfair Display', serif; font-size: 47px; font-style: italic; margin: 0; color: #000; border-bottom: 2px solid #000; padding-bottom: 4px; display: inline-block;">By Workout Vibe</h1>
+        
+        <div id="viz-switcher" style="margin-top: 10px; pointer-events: auto;">
+            <select id="viz-menu-3">
+                <option value="vibe">By Workout Vibe</option>
+                <option value="zone">By Workout Zone</option>
+                <option value="type">By Workout Type</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- STEP CONTAINER -->
+    <div id="vibe-title-block">
+        <!-- STEP 1: MOOD -->
+        <div id="step-mood" class="vibe-step">
+            <p class="label">Pick your mood:</p>
+            <p class="sub">How do you want your workout to feel?</p>
+
+            <div id="mood-descriptions">
+                <div class="mood-item">
+                    <span class="mood-label mood-euphoric">Euphoric</span>
+                    <p class="mood-desc">You want to feel unstoppable, with bright, high-energy songs that lift you up and make everything feel possible.</p>
+                </div>
+                
+                <div class="mood-item">
+                    <span class="mood-label mood-energetic">Energetic</span>
+                    <p class="mood-desc">Power-up mode filled with punchy rhythms and beats that keep your motivation flowing strong.</p>
+                </div>
+                
+                <div class="mood-item">
+                    <span class="mood-label mood-balanced">Balanced</span>
+                    <p class="mood-desc">Smooth and centered with steady beats that help you stay focused and consistent.</p>
+                </div>
+                
+                <div class="mood-item">
+                    <span class="mood-label mood-reflective">Reflective</span>
+                    <p class="mood-desc">Thoughtful and grounding with mellow tones that give space to think and reset.</p>
+                </div>
+                
+                <div class="mood-item">
+                    <span class="mood-label mood-moody">Moody</span>
+                    <p class="mood-desc">Deep and intense with darker energy that fuels your drive and emotion from within.</p>
+                </div>
+
+                <div class="mood-item">
+                    <span class="mood-label mood-chill">Chill</span>
+                    <p class="mood-desc">Calm and easygoing with gentle grooves that let you breathe, stretch, and move at your own pace.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: GENRE -->
+        <div id="step-genre" class="vibe-step" style="display:none;">
+            <p class="label">Pick a genre:</p>
+            <p class="sub">What kind of music drives your workout?</p>
+            
+<div id="genre-buttons">
+                <div class="genre-row">
+                    <span class="genre-label genre-indie">Indie / Alternative</span>
+                    <span class="genre-label genre-rock">Rock</span>
+                </div>
+                <div class="genre-row">
+                    <span class="genre-label genre-hiphop">Hip-Hop / Rap</span>
+                    <span class="genre-label genre-other">Other</span>
+                </div>
+                <div class="genre-row">
+                    <span class="genre-label genre-pop">Pop</span>
+                    <span class="genre-label genre-country">Country / Folk</span>
+                </div>
+                <div class="genre-row">
+                    <span class="genre-label genre-edm">EDM / Electronic</span>
+                    <span class="genre-label genre-latin">Latin / Global Pop</span>
+                </div>
+                <div class="genre-row">
+                    <span class="genre-label genre-rnb">R&B / Soul</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sankey-wrapper">
+        <div id="sankey-scroll">
+            <div style="width: 1400px; height: 600px;">
+                <svg id="sankey"></svg>
+            </div>
+        </div>
+    </div>
+
+<!-- STEP 3: TEXTURE -->
+<div id="step-texture" class="vibe-step" style="display:none;">
+    <p class="label">Pick a sound texture:</p>
+    <p class="sub">What kind of sound texture motivates you?</p>
+    
+    <div id="texture-descriptions">
+        
+      <div class="texture-item">
+            <span class="texture-label texture-synthetic">Synthetic</span>
+            <p class="texture-desc">Digital, layered, and bold. Feels high-tech and modern.</p>
+        </div>
+
+        <div class="texture-item">
+            <span class="texture-label texture-percussive">Percussive</span>
+            <p class="texture-desc">Focused on strong beats and rhythm. Perfect for motion and drive.</p>
+        </div>
+
+<div class="texture-item">
+            <span class="texture-label texture-ambient">Ambient</span>
+            <p class="texture-desc">Airy and spacious with sounds that help you breathe and focus.</p>
+        </div>
+
+      <div class="texture-item">
+            <span class="texture-label texture-organic">Organic</span>
+            <p class="texture-desc">Acoustic and real with warmth and authenticity.</p>
+        </div>
+        
+        <div class="texture-item">
+            <span class="texture-label texture-hybrid">Hybrid</span>
+            <p class="texture-desc">A balance between electronic and natural sounds. Flexible and dynamic.</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- STEP 4: DANCEABILITY -->
+<div id="step-dance" class="vibe-step" style="display:none;">
+    <p class="label">Pick a flow:</p>
+    <p class="sub">How much do you want to move?</p>
+    
+    <div id="dance-descriptions">
+        
+      <div class="dance-item">
+            <span class="dance-label dance-steady">Steady</span>
+            <p class="dance-desc">Balanced pace with a comfortable rhythm. Great for lifting or endurance training.</p>
+        </div>
+      
+<div class="dance-item">
+            <span class="dance-label dance-still">Still</span>
+            <p class="dance-desc">Slower and more grounded. Ideal for cooldowns or mindful moments.</p>
+        </div>
+
+      <div class="dance-item">
+            <span class="dance-label dance-groovy">Groovy</span>
+            <p class="dance-desc">Very danceable with strong rhythm and flow. Perfect for cardio and high-energy sessions.</p>
+        </div>
+      
+    </div>
+</div>
+
+<!-- STEP 5: PHASE -->
+<div id="step-phase" class="vibe-step" style="display:none;">
+    <p class="label">Pick a phase:</p>
+    <p class="sub">Where are you in your workout journey?</p>
+    
+    <div id="phase-descriptions">
+        <div class="phase-item">
+    <span class="phase-label phase-warmup">Warm-up &<br>Recovery</span>
+    <p class="phase-desc">Gentle and steady with slow beats that help your body ease in or wind down.</p>
+</div>
+        
+        <div class="phase-item">
+            <span class="phase-label phase-riser">Tempo Riser</span>
+            <p class="phase-desc">Medium-paced rhythm that builds momentum and helps you find your focus.</p>
+        </div>
+        
+        <div class="phase-item">
+            <span class="phase-label phase-peak">Peak Zone</span>
+            <p class="phase-desc">Fast and consistent beats that power your main training session.</p>
+        </div>
+        
+        <div class="phase-item">
+            <span class="phase-label phase-intensity">High Intensity</span>
+            <p class="phase-desc">Maximum energy and fast tempo for your hardest pushes and sprints.</p>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 6: RESULTS -->
+<div id="step-results" style="display:none; position:relative;">
+    <div style="position: absolute; top: 100px; left: 300px; max-width: 600px;">
+        
+        <p class="label">Pick your songs:</p>
+        <p class="sub">Which track feels like your vibe today?</p>
+        
+        <div id="songs-list" style="margin-top: 40px;"></div>
+        
+    </div>
+</div>
+
+<div id="phase-descriptions">
+    <!-- phase items -->
+</div>
+
+<button id="back-button" class="step-nav-btn back-btn" style="display:none;">
+    <span>←</span>
+</button>
+<button id="next-button" class="step-nav-btn">
+    <span>→</span>
+</button>
+
+</section>
+
+  <!-- ✅ DYNAMIC SCRIPT LOADER -->
+  <script>
+let firstLoad = true;
+
+document.addEventListener("DOMContentLoaded", function () {
+  const menu   = document.getElementById("viz-menu");
+  const menu2  = document.getElementById("viz-menu-2");
+  const menu3 = document.getElementById("viz-menu-3");
+
+
+  const zoneSection  = document.getElementById("workout-zone-section");
+  const typeSection  = document.getElementById("workout-type-section");
+  const vibeSection = document.getElementById("workout-vibe-section");
+
+  
+
+  function loadScript(path) {
+    const old = document.getElementById("dynamicJS");
+    if (old) old.remove();
+
+    const s = document.createElement("script");
+    s.src = path;
+    s.id = "dynamicJS";
+    document.body.appendChild(s);
+  }
+
+  loadScript("workout-zone/sunburst.js");  // load sunburst on page load
+
+  function showSection(value) {
+
+  // Hide all sections first
+  zoneSection.style.display = "none";
+  typeSection.style.display = "none";
+  vibeSection.style.display = "none";
+
+  if (value === "zone") {
+    zoneSection.style.display = "block";
+    loadScript("workout-zone/sunburst.js");
+    if (!firstLoad) zoneSection.scrollIntoView({ behavior: "smooth" });
+  }
+
+  else if (value === "type") {
+    typeSection.style.display = "block";
+    loadScript("workout-type/hexbin.js");
+    if (!firstLoad) typeSection.scrollIntoView({ behavior: "smooth" });
+  }
+
+  else if (value === "vibe") {
+    vibeSection.style.display = "block";
+    loadScript("workout-vibe/sankey.js");
+    if (!firstLoad) vibeSection.scrollIntoView({ behavior: "smooth" });
+  }
+
+  firstLoad = false;
+}
+
+
+  if (menu) menu.addEventListener("change", () => showSection(menu.value));
+  if (menu2) menu2.addEventListener("change", () => showSection(menu2.value));
+  if (menu3) menu3.addEventListener("change", () => showSection(menu3.value));
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Step navigation
+    console.log('stepMood:', document.getElementById('step-mood'));
+    console.log('stepGenre:', document.getElementById('step-genre'));
+    console.log('stepTexture:', document.getElementById('step-texture'));
+    console.log('stepDance:', document.getElementById('step-dance'));
+    console.log('stepPhase:', document.getElementById('step-phase'));
+    console.log('stepResults:', document.getElementById('step-results'));
+    console.log('backBtn:', document.getElementById('back-button'));
+    console.log('nextBtn:', document.getElementById('next-button'));
+
+    const stepMood = document.getElementById('step-mood');
+    const stepGenre = document.getElementById('step-genre');
+    const stepTexture = document.getElementById('step-texture');
+    const stepDance = document.getElementById('step-dance');
+    const stepPhase = document.getElementById('step-phase');
+    const stepResults = document.getElementById('step-results');
+
+    const backBtn = document.getElementById('back-button');
+    const nextBtn = document.getElementById('next-button');
+    let currentStep = 0;
+
+    function updateButtons() {
+    // Show back button on all steps except 0
+    backBtn.style.display = currentStep > 0 ? 'flex' : 'none';
+    
+    // Hide next button on step 4 (phase) and beyond
+    nextBtn.style.display = currentStep <= 4 ? 'flex' : 'none';
+}
+
+ nextBtn.addEventListener('click', () => {
+    console.log('Next button clicked, currentStep:', currentStep);
+    
+    if (currentStep === 0) {
+        stepMood.style.display = 'none';
+        stepGenre.style.display = 'block';
+        currentStep = 1;
+    } else if (currentStep === 1) {
+        stepGenre.style.display = 'none';
+        stepTexture.style.display = 'block';
+        currentStep = 2;
+    } else if (currentStep === 2) {
+        stepTexture.style.display = 'none';
+        stepDance.style.display = 'block';
+        currentStep = 3;
+    } else if (currentStep === 3) {
+        stepDance.style.display = 'none';
+        stepPhase.style.display = 'block';
+        currentStep = 4;
+    } else if (currentStep === 4) {
+        console.log('Moving to results page...');
+        // FILTER AND SHOW RESULTS
+        if (typeof window.filterAndShowSongs === 'function') {
+            window.filterAndShowSongs();
+            stepPhase.style.display = 'none';
+            stepResults.style.display = 'block';
+            currentStep = 5;
+        } else {
+            console.error('filterAndShowSongs function not found!');
+        }
+    }
+    updateButtons();
+});
+
+
+    backBtn.addEventListener('click', () => {
+    if (currentStep === 5) {
+        stepResults.style.display = 'none';
+        stepPhase.style.display = 'block';
+        currentStep = 4;
+    } else if (currentStep === 4) {
+        stepPhase.style.display = 'none';
+        stepDance.style.display = 'block';
+        currentStep = 3;
+    } else if (currentStep === 3) {
+        stepDance.style.display = 'none';
+        stepTexture.style.display = 'block';
+        currentStep = 2;
+    } else if (currentStep === 2) {
+        stepTexture.style.display = 'none';
+        stepGenre.style.display = 'block';
+        currentStep = 1;
+    } else if (currentStep === 1) {
+        stepGenre.style.display = 'none';
+        stepMood.style.display = 'block';
+        currentStep = 0;
+    }
+    updateButtons();
+});
+
+    // REMOVE THE OLD NAVIGATION CODE (all the old next-to-genre, back-to-mood, etc.)
+});
+
+</script>
+
+<p style="display: none;">
+  <a href="https://www.vecteezy.com/free-vector/cycling">Cycling Vectors by Vecteezy</a>
+  <a href="https://www.vecteezy.com/free-vector/running">Running Vectors by Vecteezy</a>
+  <a href="https://www.vecteezy.com/free-vector/aerobic-exercise-regimen">Aerobic Exercise Regimen Vectors by Vecteezy</a>
+  <!-- texture from https://www.transparenttextures.com/ -->
+</p>
+
+</body>
+</html>
