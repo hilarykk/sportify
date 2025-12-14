@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workout Type Hexbin Visualization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/d3-hexbin.v0.2.min.js"></script>
+  <style>
+    body {
+      background: #ffffff;
+      font-family: sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    svg {
+      max-width: 900px;
+      height: auto;
+    }
+/* FLOATING HEADER & LABELS — SAME AS SUNBURST */
+#title-block {
+  position: absolute;
+  top: 100px;        /* identical to sunburst */
+  left: 120px;       /* identical to sunburst */
+  pointer-events: none;
+  z-index: 1000;     /* ALWAYS above SVG */
+}
+
+#title-block h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 47px;
+  font-style: italic;
+  margin: 0;
+  color: #000;
+  border-bottom: 2px solid #000; 
+  padding-bottom: 4px;
+  display: inline-block;
+}
+
+#title-block .label {
+  font-size: 21px;
+  margin: 100px 0 12px 0;  
+  color: #000;
+  font-family: 'Inter', sans-serif;
+}
+
+#title-block .sub {
+  font-size: 20px;
+  font-style: italic;
+  color: #777;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+#chart {
+  position: absolute;
+  left: 45%;
+  top: 250px;
+  transform: translateX(-10%);
+  width: 750px;
+  height: 500px;
+  z-index: 1000;
+}
+
+/* BUTTON GRID POSITIONING */
+#button-wrap {
+  position: absolute;
+  top: 420px;        /* adjust up/down */
+  left: 110px;       /* aligns under your title block */
+  display: flex;
+  flex-direction: column;
+  gap: 60px;         /* gap between the two rows */
+  z-index: 999;
+}
+
+/* Each row */
+.button-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;         /* <-- UNIFORM spacing between buttons */
+}
+
+/* The workout buttons */
+.wbutton {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  object-position: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+/* Hover effect */
+.wbutton:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+/* Container for each icon + text */
+.button-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* Workout type label */
+.button-label {
+  margin-top: 10px;     /* ← adjust this to move text up/down */
+  font-size: 16px;
+  font-family: Inter, sans-serif;
+  color: #000;
+  text-align: center;
+  font-weight: 500;
+}
+
+#song-info-fixed {
+  position: absolute;
+  top: 200px;      /* ← ADJUST VERTICAL POSITION HERE */
+  left: 950px;     /* ← ADJUST HORIZONTAL POSITION HERE */
+
+  width: 220px;
+  background: rgba(255,255,255,0.92);
+  padding: 14px 18px;
+  border-radius: 12px;
+
+  font-family: sans-serif;
+  font-size: 13px;
+  color: #333;
+
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+  pointer-events: none;   /* so interactions pass through */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#reset-button {
+  position: absolute;
+  top: 800px;      /* ← move UP/DOWN */
+  left: 130px;     /* ← move LEFT/RIGHT */
+  
+  padding: 10px 18px;
+  border: 2px solid #11425D;   /* outline color */
+  border-radius: 10px;
+
+  font-family: Inter, sans-serif;
+  font-size: 16px;             /* ← change text size */
+  font-weight: 500;
+  color: #11425D;              /* text color */
+  background: white;
+
+  cursor: pointer;
+  opacity: 0;                  /* hidden by default */
+  pointer-events: none;        /* disabled when invisible */
+  transition: opacity 0.25s ease;
+}
+
+/* Floating hint for hexbin */
+#hexbin-hint {
+  position: absolute;
+    z-index: 9000;    /* ← bring to front */
+  right: 200px;     /* ← move LEFT/RIGHT */
+  top: 320px;       /* ← move UP/DOWN */
+  
+  display: flex;
+  align-items: flex-start;
+  gap: 25px;
+
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  color: #000;
+
+  pointer-events: none;   /* doesn't block clicking hexes */
+}
+
+
+#hexbin-hint .text {
+  font-size: 23px;    /* ← change text size */
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+#viz-switcher {
+  margin-top: 10px;
+}
+
+#viz-menu {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+#viz-switcher {
+  pointer-events: auto !important;
+}
+
+
+
+  </style>
+</head>
+<body>
+  <div id="title-block">
+  <h1 style="font-family: 'Playfair Display'; font-size: 47px; font-style: italic;">
+    By Workout Type
+  </h1>
+
+  <div id="viz-switcher">
+  <select id="viz-menu">
+    <option value="../workout-type/workout-type.html">By Workout Type</option>
+    <option value="../workout-zone/workout-zone.html">By Workout Zone</option>
+  </select>
+</div>
+
+  <p id="main-label" class="label"><strong>Pick your exercise:</strong></p>
+  <p id="sub-label" class="sub">What kind of workout are you in the mood for today?</p>
+</div>
+
+<!-- WORKOUT BUTTON GRID -->
+<div id="button-wrap">
+
+  <!-- Row 1 -->
+  <div class="button-row">
+    <div class="button-wrap" data-type="Yoga"><img src="yoga.png" class="wbutton"><div class="button-label">Yoga</div></div>
+    <div class="button-wrap" data-type="Pilates"><img src="pilates.png" class="wbutton"><div class="button-label">Pilates</div></div>
+    <div class="button-wrap" data-type="Walking"><img src="walking.png" class="wbutton"><div class="button-label">Walking</div></div>
+    <div class="button-wrap" data-type="Strength"><img src="strength.png" class="wbutton"><div class="button-label">Strength</div></div>
+    <div class="button-wrap" data-type="Elliptical"><img src="elliptical.png" class="wbutton"><div class="button-label">Elliptical</div></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="button-row">
+    <div class="button-wrap" data-type="Stepper"><img src="stepper.png" class="wbutton"><div class="button-label">Stepper</div></div>
+    <div class="button-wrap" data-type="Cycling"><img src="cycling.png" class="wbutton"><div class="button-label">Cycling</div></div>
+    <div class="button-wrap" data-type="Dance"><img src="dance.png" class="wbutton"><div class="button-label">Dance</div></div>
+    <div class="button-wrap" data-type="Running"><img src="running.png" class="wbutton"><div class="button-label">Running</div></div>
+    <div class="button-wrap" data-type="HIIT"><img src="hiit.png" class="wbutton"><div class="button-label">HIIT</div></div>
+  </div>
+
+  <div id="song-info-fixed"></div>
+
+</div>
+<div id="reset-button">See all songs</div>
+<div id="hexbin-hint">
+  <div class="text">Click the <br> hexagons to <br> explore your <br> songs</div>
+</div>
+
+
+
+  <div id="chart"></div>
+  <script src="hexbin.js"></script>
+<script>
+  const menu = document.getElementById("viz-menu");
+  const currentPage = window.location.pathname;
+
+  if (currentPage.includes("workout-type")) {
+    menu.value = "../workout-type/workout-type.html";
+  } else if (currentPage.includes("workout-zone")) {
+    menu.value = "../workout-zone/workout-zone.html";
+  }
+
+  menu.addEventListener("change", () => {
+    window.location.href = menu.value;
+  });
+</script>
+
+</body>
+</html>
