@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sportify! — BPM Visualization</title>
+
+  <!-- D3 Library -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+
+<style>
+
+</style>
+
+</head>
+
+<body>
+
+  <div id="title-block">
+  <h1 style="font-family: 'Playfair Display'; font-size: 47px; font-style: italic;">By Workout Zone</h1>
+
+<div id="viz-switcher">
+  <select id="viz-menu">
+      <option value="../workout-zone/workout-zone.html">By Workout Zone</option>
+      <option value="../workout-type/workout-type.html">By Workout Type</option>
+  </select>
+</div>
+
+
+  <p id="main-label" class="label"><strong>Pick a zone:</strong></p>
+  <p id="sub-label" class="sub">What kind of energy do you want to train in?</p>
+</div>
+
+  <div id="chart-wrapper">
+    <div id="chart"></div>
+    <div id="center-info"
+         style="
+            position:absolute;
+            top:91%;
+            left:50%;
+            transform:translate(-50%, -50%);
+            text-align:center;
+            pointer-events:none;
+            color:#333;">
+    </div>
+    <div id="scroll-hint">
+  <div class="arrow">↓</div>
+  <div class="text">Scroll to spin<br>the wheel</div>
+</div>
+
+
+
+  </div>
+
+  <script src="sunburst.js"></script>
+
+<script>
+  const menu = document.getElementById("viz-menu");
+  const currentPage = window.location.pathname;
+
+  if (currentPage.includes("workout-type")) {
+    menu.value = "../workout-type/workout-type.html";
+  } else if (currentPage.includes("workout-zone")) {
+    menu.value = "../workout-zone/workout-zone.html";
+  }
+
+  menu.addEventListener("change", () => {
+    window.location.href = menu.value;
+  });
+</script>
+
+
+</body>
+
+</html>
